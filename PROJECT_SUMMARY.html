@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Dov Fuchs Digital Art App - Project Summary</title>
+    <style>
+        body { font-family: Calibri, Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; border-bottom: 1px solid #bdc3c7; padding-bottom: 5px; }
+        h3 { color: #7f8c8d; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: Consolas, monospace; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        .highlight { background: #fff3cd; padding: 10px; border-left: 4px solid #ffc107; margin: 15px 0; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #3498db; color: white; }
+        ul { margin: 10px 0; }
+        li { margin: 5px 0; }
+    </style>
+</head>
+<body>
+
+<h1>Dov Fuchs Digital Art App</h1>
+<p><strong>Project Summary Document</strong><br>
+Created: February 2026</p>
+
+<h2>1. Project Overview</h2>
+<p>A mobile-friendly web application to showcase Dov's digital art collection. The app allows visitors to browse, search, and filter artwork by name and themes, with automatic synchronization when new images are added.</p>
+
+<h3>Live URL</h3>
+<p><a href="https://extraordinary-choux-2e83df.netlify.app">https://extraordinary-choux-2e83df.netlify.app</a></p>
+
+<h3>Key Features</h3>
+<ul>
+    <li>Responsive image gallery (works on phone and desktop)</li>
+    <li>Search by image name</li>
+    <li>Filter by themes</li>
+    <li>Sort options: A-Z, Z-A, Newest First, Oldest First, Random</li>
+    <li>Click to view full image with description</li>
+    <li>Automatic sync from Google Drive</li>
+    <li>PWA support (can be installed on phone)</li>
+</ul>
+
+<h2>2. Architecture</h2>
+<pre>
+[Your Computer]              [Google Cloud]                [Internet]
+      |                            |                           |
+Images Folder  --auto-sync-->  Google Drive Folder  <--reads-- Web App (Netlify)
+Excel File     --auto-sync-->  Google Drive                    |
+                                   |                           |
+                            Google Apps Script          User's Phone/Browser
+                            (converts to JSON)
+</pre>
+
+<h3>How It Works</h3>
+<ol>
+    <li>Images and Excel file sync to Google Drive (via Google Drive desktop app)</li>
+    <li>Google Apps Script reads the spreadsheet every 5 minutes</li>
+    <li>Script generates <code>image-data.json</code> with image URLs and metadata</li>
+    <li>Web app fetches this JSON and displays the gallery</li>
+</ol>
+
+<h2>3. Project Files</h2>
+
+<table>
+    <tr>
+        <th>File</th>
+        <th>Purpose</th>
+        <th>Location</th>
+    </tr>
+    <tr>
+        <td><code>index.html</code></td>
+        <td>Main webpage structure</td>
+        <td>Local + Netlify</td>
+    </tr>
+    <tr>
+        <td><code>style.css</code></td>
+        <td>Visual styling (dark theme)</td>
+        <td>Local + Netlify</td>
+    </tr>
+    <tr>
+        <td><code>app.js</code></td>
+        <td>Gallery logic, search, filtering, sorting</td>
+        <td>Local + Netlify</td>
+    </tr>
+    <tr>
+        <td><code>image-data.json</code></td>
+        <td>Image metadata (auto-generated)</td>
+        <td>Google Drive + Netlify</td>
+    </tr>
+    <tr>
+        <td><code>google-apps-script.js</code></td>
+        <td>Script that generates JSON from Excel</td>
+        <td>Google Apps Script</td>
+    </tr>
+    <tr>
+        <td><code>manifest.json</code></td>
+        <td>PWA configuration</td>
+        <td>Local + Netlify</td>
+    </tr>
+</table>
+
+<h2>4. Important IDs and Links</h2>
+
+<div class="highlight">
+    <strong>Google Drive Folder ID:</strong><br>
+    <code>12DV0SVIRY4iz9iwg8Sdczp55hH899QKc</code>
+</div>
+
+<table>
+    <tr>
+        <th>Resource</th>
+        <th>Link</th>
+    </tr>
+    <tr>
+        <td>Google Apps Script</td>
+        <td><a href="https://script.google.com">https://script.google.com</a> (look for "DovArt Sync")</td>
+    </tr>
+    <tr>
+        <td>Google Drive Folder</td>
+        <td><a href="https://drive.google.com/drive/folders/12DV0SVIRY4iz9iwg8Sdczp55hH899QKc">Open Folder</a></td>
+    </tr>
+    <tr>
+        <td>Netlify Dashboard</td>
+        <td><a href="https://app.netlify.com">https://app.netlify.com</a></td>
+    </tr>
+</table>
+
+<h2>5. How to Add New Images</h2>
+
+<ol>
+    <li><strong>Add the image file</strong> to your local "All my images small" folder (it will sync to Google Drive automatically)</li>
+    <li><strong>Update the spreadsheet</strong> "Description and themes of my images" with:
+        <ul>
+            <li>Image Name (must match filename without extension)</li>
+            <li>Description</li>
+            <li>Themes (comma-separated)</li>
+            <li>Date Created</li>
+        </ul>
+    </li>
+    <li><strong>Wait 5 minutes</strong> for the Google Apps Script to update the JSON</li>
+    <li><strong>Download the new <code>image-data.json</code></strong> from Google Drive</li>
+    <li><strong>Re-deploy to Netlify</strong> by dragging the folder to Netlify</li>
+</ol>
+
+<div class="highlight">
+    <strong>Note:</strong> The image name in the spreadsheet must exactly match the filename (without .jpg extension). For example, if the file is "Sunset Beach.jpg", the spreadsheet should have "Sunset Beach".
+</div>
+
+<h2>6. Troubleshooting</h2>
+
+<h3>Image not showing?</h3>
+<ul>
+    <li>Check that the name in spreadsheet matches the filename exactly</li>
+    <li>Make sure the Google Drive folder is shared publicly ("Anyone with the link")</li>
+    <li>Run the Google Apps Script manually and check for errors</li>
+</ul>
+
+<h3>Script errors?</h3>
+<ul>
+    <li>Verify the FOLDER_ID in the script matches your folder</li>
+    <li>Make sure the spreadsheet is in the same folder as the images</li>
+    <li>Check that the spreadsheet is a Google Sheets file (not .xlsx)</li>
+</ul>
+
+<h2>7. Future Enhancement Ideas</h2>
+
+<h3>Easy Improvements</h3>
+<ul>
+    <li><strong>Custom domain:</strong> Connect a custom domain like dovart.com via Netlify settings</li>
+    <li><strong>Favorites:</strong> Add a heart button to save favorite images (using localStorage)</li>
+    <li><strong>Image counter:</strong> Show "Showing X of Y images" in the header</li>
+    <li><strong>Share button:</strong> Add ability to share individual images</li>
+    <li><strong>Date display:</strong> Show the creation date on each image card</li>
+</ul>
+
+<h3>Medium Improvements</h3>
+<ul>
+    <li><strong>Slideshow mode:</strong> Auto-play through images with a timer</li>
+    <li><strong>Multiple theme selection:</strong> Filter by multiple themes at once</li>
+    <li><strong>Search in descriptions:</strong> Extend search to include descriptions, not just names</li>
+    <li><strong>Image zoom:</strong> Pinch-to-zoom on mobile for image details</li>
+    <li><strong>Keyboard navigation:</strong> Arrow keys to browse images in modal view</li>
+    <li><strong>Light/Dark mode toggle:</strong> Let users switch between themes</li>
+</ul>
+
+<h3>Advanced Improvements</h3>
+<ul>
+    <li><strong>Automatic Netlify deployment:</strong> Use GitHub Actions to auto-deploy when JSON changes</li>
+    <li><strong>Image categories/collections:</strong> Group images into albums</li>
+    <li><strong>Contact form:</strong> Add a way for visitors to inquire about artwork</li>
+    <li><strong>Analytics:</strong> Track which images are viewed most</li>
+    <li><strong>Print/Download options:</strong> Allow visitors to download high-res versions</li>
+    <li><strong>AI-powered search:</strong> Search by describing what's in the image</li>
+</ul>
+
+<h2>8. Technical Reference</h2>
+
+<h3>Spreadsheet Column Names (recognized by script)</h3>
+<ul>
+    <li>Name: "Image Name", "Name", or "name"</li>
+    <li>Description: "Image Description", "Description", or "description"</li>
+    <li>Themes: "Themes", "Theme", or "themes"</li>
+    <li>Date: "Date Created", "Date", "Created", or "date created"</li>
+</ul>
+
+<h3>Supported Image Formats</h3>
+<p>jpg, jpeg, png, gif, webp, bmp, tiff</p>
+
+<h3>Google Apps Script Trigger Setup</h3>
+<ol>
+    <li>Go to <a href="https://script.google.com">script.google.com</a></li>
+    <li>Open your "DovArt Sync" project</li>
+    <li>Click on "Triggers" (clock icon) in the left sidebar</li>
+    <li>Click "+ Add Trigger"</li>
+    <li>Settings:
+        <ul>
+            <li>Function: <code>generateJSON</code></li>
+            <li>Event source: Time-driven</li>
+            <li>Type: Minutes timer</li>
+            <li>Interval: Every 5 minutes</li>
+        </ul>
+    </li>
+    <li>Click Save</li>
+</ol>
+
+<hr>
+<p><em>Document generated February 2026. For questions or updates, refer to the project files in <code>C:\Users\User\Desktop\dov-art-app\</code></em></p>
+
+</body>
+</html>

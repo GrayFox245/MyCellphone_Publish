@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dov Fuchs Digital Art</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="Icon.jpg">
+</head>
+<body>
+    <header>
+        <h1>Dov Fuchs Digital Art</h1>
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Search by name...">
+            <select id="themeFilter">
+                <option value="">All Themes</option>
+            </select>
+            <select id="sortOrder">
+                <option value="a-z">A → Z</option>
+                <option value="z-a">Z → A</option>
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="random">Random</option>
+            </select>
+        </div>
+    </header>
+
+    <main>
+        <div id="gallery" class="gallery"></div>
+    </main>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <img id="modalImage" src="" alt="">
+            <div class="modal-info">
+                <h2 id="modalTitle"></h2>
+                <p id="modalDescription"></p>
+                <div id="modalThemes" class="themes"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading" class="loading">Loading images...</div>
+
+    <script src="app.js"></script>
+</body>
+</html>
