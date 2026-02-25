@@ -1,49 +1,52 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dov Fuchs Digital Art</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="Icon.jpg">
-</head>
-<body>
-    <header>
-        <h1>Dov Fuchs Digital Art</h1>
-        <div class="search-container">
-            <input type="text" id="searchInput" placeholder="Search by name...">
-            <select id="themeFilter">
-                <option value="">All Themes</option>
-            </select>
-            <select id="sortOrder">
-                <option value="a-z">A → Z</option>
-                <option value="z-a">Z → A</option>
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-                <option value="random">Random</option>
-            </select>
-        </div>
-    </header>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
 
-    <main>
-        <div id="gallery" class="gallery"></div>
-    </main>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">Dov Fuchs Digital Art</div>
 
-    <div id="modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <img id="modalImage" src="" alt="">
-            <div class="modal-info">
-                <h2 id="modalTitle"></h2>
-                <p id="modalDescription"></p>
-                <div id="modalThemes" class="themes"></div>
-            </div>
+        <label class="label" for="searchInput">Search by name…</label>
+        <input id="searchInput" class="input" type="text" placeholder="Search by name..." />
+
+        <label class="label" for="themeSelect">Theme</label>
+        <select id="themeSelect" class="select">
+          <option value="">All Themes</option>
+        </select>
+
+        <label class="label" for="sortSelect">Sort</label>
+        <select id="sortSelect" class="select">
+          <option value="newest">Newest</option>
+          <option value="az">A → Z</option>
+          <option value="za">Z → A</option>
+        </select>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <div id="status" class="status"></div>
+          <div id="countLabel" class="count"></div>
         </div>
+
+        <div id="grid" class="grid"></div>
+      </main>
     </div>
 
-    <div id="loading" class="loading">Loading images...</div>
+    <!-- Lightbox -->
+    <div id="lightbox" class="lightbox" aria-hidden="true">
+      <button id="lightboxClose" class="lightboxClose" aria-label="Close">×</button>
+      <div class="lightboxInner">
+        <img id="lightboxImg" class="lightboxImg" alt="" />
+        <div id="lightboxTitle" class="lightboxTitle"></div>
+      </div>
+    </div>
 
-    <script src="app.js"></script>
-</body>
+    <script src="./app.js"></script>
+  </body>
 </html>
