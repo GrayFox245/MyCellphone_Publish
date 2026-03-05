@@ -1,2 +1,5 @@
 ﻿# Ignore Office temp/lock files
 ~$*
+
+# Ignore Word docs
+*.docx
