@@ -21,6 +21,7 @@ const elLightbox = document.getElementById("lightbox");
 const elLightboxClose = document.getElementById("lightboxClose");
 const elLightboxImg = document.getElementById("lightboxImg");
 const elLightboxTitle = document.getElementById("lightboxTitle");
+const elLightboxDesc = document.getElementById("lightboxDesc");
 
 let ALL = [];
 let FILTERED = [];
@@ -36,8 +37,26 @@ function norm(s) {
 }
 
 function parseYear(v) {
-  const n = Number(String(v || "").trim());
-  return Number.isFinite(n) ? n : null;
+  // Supports either a 4-digit year or an ISO date string like 2023-12-20T00:00:00Z
+  const txt = normalizeYearText(v);
+  if (!txt) return null;
+
+  const direct = Number(txt);
+  if (Number.isFinite(direct) && direct >= 1800 && direct <= 2200) {
+    return direct;
+  }
+
+  const m = txt.match(/^(\d{4})/);
+  if (m) {
+    const y = Number(m[1]);
+    if (Number.isFinite(y) && y >= 1800 && y <= 2200) return y;
+  }
+
+  return null;
+}
+
+function normalizeYearText(v) {
+  return safeText(v).trim();
 }
 
 function splitThemes(v) {
@@ -53,10 +72,10 @@ function splitThemes(v) {
 
 function buildSortKey(item) {
   // Priority:
-  // 1) year (if exists)
+  // 1) year/dateCreated (if exists)
   // 2) id (if numeric)
   // 3) file order index (we inject _idx)
-  const y = parseYear(item.year);
+  const y = parseYear(item.dateCreated || item.year);
   const id = Number(item.id);
   const idOk = Number.isFinite(id);
 
@@ -132,8 +151,10 @@ async function loadData() {
       id: it.id,
       name: safeText(it.name),
       description: safeText(it.description),
+      teaser: safeText(it.teaser),
       themes: themesArr,             // array
       year: safeText(it.year),
+      dateCreated: safeText(it.dateCreated),
       filename: safeText(it.filename),
       _idx: idx,                     // file order
     };
@@ -256,6 +277,9 @@ function openLightbox(it) {
   if (elLightboxTitle) {
     elLightboxTitle.textContent = it.name || "";
   }
+  if (elLightboxDesc) {
+    elLightboxDesc.textContent = it.teaser || "";
+  }
 }
 
 function closeLightbox() {
@@ -268,6 +292,7 @@ function closeLightbox() {
     elLightboxImg.alt = "";
   }
   if (elLightboxTitle) elLightboxTitle.textContent = "";
+  if (elLightboxDesc) elLightboxDesc.textContent = "";
 }
 
 // ---------- Wire events ----------

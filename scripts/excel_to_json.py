@@ -91,7 +91,7 @@ def main() -> None:
     df = pd.read_excel(excel_path)
 
     # Required columns (exactly as your header row)
-    required_cols = ["Image Name", "Image Description", "Themes", "Year Created"]
+    required_cols = ["Image Name", "Image Description", "Themes", "Teaser", "Year Created"]
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
         raise ValueError(
@@ -112,6 +112,7 @@ def main() -> None:
 
         description = normalize_text(row["Image Description"])
         themes = parse_themes(row["Themes"])
+        teaser = normalize_text(row["Teaser"])
         date_created = make_date_created(row["Year Created"])
 
         filename = ensure_extension(name)
@@ -126,6 +127,7 @@ def main() -> None:
                 "name": name,
                 "description": description,
                 "themes": themes,
+                "teaser": teaser,
                 "dateCreated": date_created,
                 "filename": filename,
             }
