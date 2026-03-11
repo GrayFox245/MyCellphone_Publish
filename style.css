@@ -1,188 +1,221 @@
-/* ============ Base ============ */
-* {
-  box-sizing: border-box;
-}
+/* =========================
+   Dov Fuchs Digital Art
+   Responsive (mobile-first) grid
+   Goal: small square thumbnails (4–5 per row on phone)
+   ========================= */
 
-html, body {
-  height: 100%;
-}
-
+/* Reset */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
-  background: #1a1a1a;
-  color: #fff;
+  background: #0f0f12;
+  color: #eaeaf0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
-/* ============ Layout ============ */
+/* Layout */
 .app {
-  display: flex;
+  display: grid;
+  grid-template-columns: 280px 1fr;
   min-height: 100vh;
 }
 
 .sidebar {
-  width: 320px;
-  padding: 16px;
-  background: #111;
-  border-right: 1px solid #222;
+  padding: 14px 14px 18px;
+  border-right: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.25);
   position: sticky;
   top: 0;
   height: 100vh;
   overflow: auto;
 }
 
-.brand {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 16px;
+.main {
+  padding: 14px 14px 24px;
 }
 
+/* Mobile: sidebar becomes top bar */
+@media (max-width: 860px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .sidebar {
+    position: relative;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+}
+
+/* Header title (if present) */
+.headerTitle,
+h1.appTitle,
+.sidebar h1,
+.sidebar .title {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* Controls */
 .label {
   display: block;
   font-size: 12px;
   opacity: 0.85;
-  margin: 12px 0 6px;
+  margin: 10px 0 6px;
 }
 
-.input,
-.select {
+input[type="text"],
+select {
   width: 100%;
-  padding: 10px 12px;
+  padding: 10px 10px;
   border-radius: 10px;
-  border: 1px solid #2a2a2a;
-  background: #181818;
-  color: #fff;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.06);
+  color: #eaeaf0;
   outline: none;
 }
 
-.input::placeholder {
-  color: rgba(255,255,255,0.45);
+input[type="text"]::placeholder { color: rgba(234,234,240,0.55); }
+
+@media (max-width: 860px) {
+  .controlsRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .controlsRow .block { min-width: 0; }
 }
 
-.main {
-  flex: 1;
-  padding: 16px;
-  overflow: auto;
-}
-
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  min-height: 28px;
-}
-
+/* Status banner */
+#status,
 .status {
-  color: rgba(255,255,255,0.85);
+  display: inline-block;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  margin: 0 0 12px;
   font-size: 13px;
+  opacity: 0.95;
 }
 
-.count {
-  color: rgba(255,255,255,0.7);
-  font-size: 13px;
-}
+/* =========================
+   GRID (the important part)
+   ========================= */
 
-/* ============ Grid / Tiles (FIXED) ============ */
-.grid {
+/* Support multiple possible grid containers */
+#grid,
+.grid,
+#gallery,
+.gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
+  gap: 10px;
+  align-content: start;
+
+  /* Desktop default */
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
 }
 
-.tile {
-  background: #101010;
-  border: 1px solid #232323;
+/* Phone: force small squares, 4–5 per row */
+@media (max-width: 520px) {
+  #grid,
+  .grid,
+  #gallery,
+  .gallery {
+    gap: 8px;
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* Very small phones: 4 per row */
+@media (max-width: 380px) {
+  #grid,
+  .grid,
+  #gallery,
+  .gallery {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Tile / Card */
+.card,
+.tile,
+.item {
   border-radius: 14px;
   overflow: hidden;
-  cursor: pointer;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  position: relative;
 }
 
-.tile:focus {
-  outline: 2px solid rgba(255,255,255,0.25);
-  outline-offset: 2px;
-}
-
-.tileImg {
+/* Square thumbnail area */
+.card img,
+.tile img,
+.item img,
+.thumb img {
   width: 100%;
-  height: 170px;      /* important: prevents tall strips */
-  object-fit: cover;  /* important */
+  height: auto;
   display: block;
-  background: #0b0b0b;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
 }
 
-.tileCaption {
-  padding: 10px 12px;
-  font-size: 13px;
-  color: rgba(255,255,255,0.85);
-  border-top: 1px solid #1f1f1f;
-  white-space: nowrap;
+/* Title overlay (kept small; won’t enlarge tiles) */
+.card .caption,
+.tile .caption,
+.item .caption,
+.card .title,
+.tile .title,
+.item .title {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.2;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.10);
+  max-height: 2.6em;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-/* ============ Lightbox ============ */
-.lightbox {
+/* On phone: hide title overlay to keep squares clean */
+@media (max-width: 520px) {
+  .card .caption,
+  .tile .caption,
+  .item .caption,
+  .card .title,
+  .tile .title,
+  .item .title {
+    display: none;
+  }
+}
+
+/* Lightbox (if you have one) */
+.lightbox,
+#lightbox {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.82);
+  background: rgba(0,0,0,0.85);
   display: none;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  z-index: 999;
+  padding: 16px;
+  z-index: 9999;
 }
 
-.lightbox.open {
-  display: flex;
-}
+.lightbox.open,
+#lightbox.open { display: flex; }
 
-.lightboxInner {
-  max-width: min(1100px, 95vw);
+.lightbox img,
+#lightbox img {
+  max-width: min(1200px, 95vw);
   max-height: 90vh;
-  text-align: center;
-}
-
-.lightboxImg {
-  max-width: 95vw;
-  max-height: 80vh;
-  border-radius: 14px;
-  border: 1px solid #2a2a2a;
-  background: #000;
-}
-
-.lightboxTitle {
-  margin-top: 10px;
-  font-size: 14px;
-  color: rgba(255,255,255,0.9);
-}
-
-.lightboxClose {
-  position: fixed;
-  top: 14px;
-  right: 16px;
-  width: 42px;
-  height: 42px;
-  border-radius: 999px;
-  border: 1px solid #333;
-  background: rgba(20,20,20,0.7);
-  color: #fff;
-  font-size: 26px;
-  line-height: 38px;
-  cursor: pointer;
-}
-
-/* ============ Mobile ============ */
-@media (max-width: 900px) {
-  .app {
-    flex-direction: column;
-  }
-
-  .sidebar {
-    width: 100%;
-    height: auto;
-    position: static;
-    border-right: none;
-    border-bottom: 1px solid #222;
-  }
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.18);
 }

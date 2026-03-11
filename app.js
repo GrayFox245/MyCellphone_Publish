@@ -1,256 +1,329 @@
-"use strict";
+/* =========================
+   Dov Fuchs Digital Art - app.js
+   - Loads image_data.json
+   - Accepts BOTH old and new JSON field names
+   - Filters: search + theme
+   - Sort: Newest / Oldest / A→Z / Z→A
+   - Lightbox
+   ========================= */
 
 const DATA_URL = "./image_data.json";
+const IMAGES_DIR = "./images/";
 
 // Elements
-const elGrid = document.getElementById("grid");
-const elStatus = document.getElementById("status");
 const elSearch = document.getElementById("searchInput");
 const elTheme = document.getElementById("themeSelect");
 const elSort = document.getElementById("sortSelect");
+const elGrid = document.getElementById("grid");
+const elStatus = document.getElementById("status");
 const elCount = document.getElementById("countLabel");
 
 const elLightbox = document.getElementById("lightbox");
+const elLightboxClose = document.getElementById("lightboxClose");
 const elLightboxImg = document.getElementById("lightboxImg");
 const elLightboxTitle = document.getElementById("lightboxTitle");
-const elLightboxClose = document.getElementById("lightboxClose");
 
 let ALL = [];
 let FILTERED = [];
 
-// ---------- helpers ----------
-function normalizeText(s) {
-  return String(s || "").toLowerCase().trim();
+// ---------- Helpers ----------
+function safeText(v) {
+  if (v === null || v === undefined) return "";
+  return String(v);
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function norm(s) {
+  return safeText(s).trim().toLowerCase();
 }
 
-function parseTs(s) {
-  const t = Date.parse(String(s || ""));
-  return Number.isFinite(t) ? t : 0;
+function parseYear(v) {
+  const s = safeText(v).trim();
+
+  // plain year like "2026"
+  if (/^\d{4}$/.test(s)) return Number(s);
+
+  // full date string like "Sun Feb 22 2026 ..."
+  const m = s.match(/\b(19|20)\d{2}\b/);
+  if (m) return Number(m[0]);
+
+  return null;
 }
 
-/*
-Sort key priority:
-1) x.year if it's a real date/ISO ("2026-02-24", "2026-02-24T...")
-2) x.year if it's "YYYY"
-3) YYYY-MM-DD inside filename
-4) numeric id fallback, but we invert it so higher id = newer (common case)
-5) JSON generated timestamp
-6) 0
-*/
-function deriveItemTs(x, jsonGeneratedTs) {
-  const yearRaw = x && x.year != null ? String(x.year).trim() : "";
-
-  // 1) ISO/date-like in year field
-  const parsedYear = Date.parse(yearRaw);
-  if (Number.isFinite(parsedYear)) return parsedYear;
-
-  // 2) plain year "2024"
-  if (/^\d{4}$/.test(yearRaw)) {
-    const t = Date.parse(`${yearRaw}-01-01T00:00:00Z`);
-    return Number.isFinite(t) ? t : 0;
+function splitThemes(v) {
+  if (Array.isArray(v)) {
+    return v.map(safeText).map(s => s.trim()).filter(Boolean);
   }
 
-  // 3) try to find YYYY-MM-DD in filename
-  const fn = x && x.filename != null ? String(x.filename) : "";
-  const m = fn.match(/(19|20)\d{2}-\d{2}-\d{2}/);
-  if (m) {
-    const t = Date.parse(`${m[0]}T00:00:00Z`);
-    if (Number.isFinite(t)) return t;
+  const s = safeText(v);
+  if (!s) return [];
+
+  return s
+    .split(/[;,]/g)
+    .map(t => t.trim())
+    .filter(Boolean);
+}
+
+function buildSortKey(item) {
+  const y = parseYear(item.year);
+  const id = Number(item.id);
+  const idOk = Number.isFinite(id);
+
+  return {
+    year: y !== null ? y : -1,
+    id: idOk ? id : -1,
+    idx: Number.isFinite(item._idx) ? item._idx : 0,
+  };
+}
+
+function compareNewest(a, b) {
+  const ka = buildSortKey(a);
+  const kb = buildSortKey(b);
+
+  if (kb.year !== ka.year) return kb.year - ka.year;
+  if (kb.id !== ka.id) return kb.id - ka.id;
+  return kb.idx - ka.idx;
+}
+
+function compareOldest(a, b) {
+  const ka = buildSortKey(a);
+  const kb = buildSortKey(b);
+
+  const ay = ka.year === -1 ? Number.POSITIVE_INFINITY : ka.year;
+  const by = kb.year === -1 ? Number.POSITIVE_INFINITY : kb.year;
+  if (ay !== by) return ay - by;
+
+  const aid = ka.id === -1 ? Number.POSITIVE_INFINITY : ka.id;
+  const bid = kb.id === -1 ? Number.POSITIVE_INFINITY : kb.id;
+  if (aid !== bid) return aid - bid;
+
+  return ka.idx - kb.idx;
+}
+
+function compareAZ(a, b) {
+  return safeText(a.name).localeCompare(safeText(b.name), undefined, { sensitivity: "base" });
+}
+
+function compareZA(a, b) {
+  return safeText(b.name).localeCompare(safeText(a.name), undefined, { sensitivity: "base" });
+}
+
+function setStatus(msg) {
+  if (elStatus) elStatus.textContent = msg || "";
+}
+
+function setCount(n) {
+  if (!elCount) return;
+  elCount.textContent = `${n} shown`;
+}
+
+// Accept both:
+// new format: {id, name, description, themes, year, filename}
+// old format: {number, image_name, description, themes, year_created, image_file}
+function normalizeItem(it, idx) {
+  const themesArr = splitThemes(it.themes);
+
+  return {
+    id: safeText(it.id || it.number),
+    name: safeText(it.name || it.image_name),
+    description: safeText(it.description),
+    themes: themesArr,
+    year: safeText(it.year || it.year_created),
+    filename: safeText(it.filename || it.image_file),
+    _idx: idx,
+  };
+}
+
+// ---------- Data loading ----------
+async function loadData() {
+  setStatus("Loading…");
+
+  const res = await fetch(DATA_URL, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to load ${DATA_URL} (${res.status})`);
   }
 
-  // 4) numeric id fallback:
-  // Your IDs behave like "smaller = newer" (reverse of usual),
-  // so we invert the number to make bigger = newer.
-  const idNum = Number(x && x.id != null ? x.id : NaN);
-  if (Number.isFinite(idNum)) return -idNum;
+  const json = await res.json();
 
-  // 5) JSON generated timestamp
-  if (Number.isFinite(jsonGeneratedTs) && jsonGeneratedTs) return jsonGeneratedTs;
+  // Accept either direct array or {images:[...]}
+  const arr = Array.isArray(json)
+    ? json
+    : Array.isArray(json.images)
+    ? json.images
+    : [];
 
-  return 0;
-}
+  const normalized = arr.map((it, idx) => normalizeItem(it, idx));
 
-function coerceItems(data) {
-  if (!data || !Array.isArray(data.images)) return [];
+  ALL = normalized.filter(x => x.filename && x.name);
 
-  const generatedTs = parseTs(data.generated);
-
-  return data.images
-    .map((x, i) => {
-      const filename = x.filename ?? "";
-      const clean = String(filename).replace(/^\.?\/?images\/?/i, "");
-
-      return {
-        id: x.id ?? i + 1,
-        title: x.name ?? "Untitled",
-        theme: x.themes ?? "",
-        filename: clean,
-        ts: deriveItemTs({ ...x, filename: clean }, generatedTs),
-        url: "./images/" + clean,
-        order: i, // stable tie-breaker
-      };
-    })
-    .filter((it) => it.filename && it.title);
-}
-
-function uniqueThemes(items) {
-  const set = new Set();
-  items.forEach((it) => {
-    const t = String(it.theme || "").trim();
-    if (t) set.add(t);
-  });
-  return Array.from(set).sort((a, b) => a.localeCompare(b));
-}
-
-function fillThemeDropdown(items) {
-  const themes = uniqueThemes(items);
-  elTheme.innerHTML =
-    `<option value="">All Themes</option>` +
-    themes.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
-}
-
-function fillSortDropdown() {
-  elSort.innerHTML = `
-    <option value="newest">Newest</option>
-    <option value="oldest">Oldest</option>
-    <option value="az">A → Z</option>
-    <option value="za">Z → A</option>
-  `;
-}
-
-function applyFilters() {
-  const q = normalizeText(elSearch.value);
-  const theme = elTheme.value;
-
-  let out = ALL;
-
-  if (theme) out = out.filter((it) => String(it.theme).trim() === theme);
-  if (q) out = out.filter((it) => normalizeText(it.title).includes(q));
-
-  const sortMode = elSort.value;
-
-  out = out.slice().sort((a, b) => {
-    if (sortMode === "newest") {
-      const d = (b.ts || 0) - (a.ts || 0);
-      return d !== 0 ? d : (b.order - a.order);
-    }
-    if (sortMode === "oldest") {
-      const d = (a.ts || 0) - (b.ts || 0);
-      return d !== 0 ? d : (a.order - b.order);
-    }
-    if (sortMode === "za") return b.title.localeCompare(a.title);
-    return a.title.localeCompare(b.title); // az
-  });
-
-  FILTERED = out;
-  render();
-}
-
-function render() {
-  elGrid.innerHTML = "";
-  elCount.textContent = `${FILTERED.length} shown`;
-
-  if (!FILTERED.length) {
-    elStatus.textContent = "No results.";
+  if (ALL.length === 0) {
+    setStatus("No items found in JSON.");
+    setCount(0);
     return;
   }
 
-  elStatus.textContent = "";
-
-  const frag = document.createDocumentFragment();
-
-  FILTERED.forEach((it) => {
-    const tile = document.createElement("div");
-    tile.className = "tile";
-    tile.tabIndex = 0;
-
-    const img = document.createElement("img");
-    img.className = "tileImg";
-    img.src = it.url;
-    img.alt = it.title;
-    img.loading = "lazy";
-
-    const cap = document.createElement("div");
-    cap.className = "tileCaption";
-    cap.textContent = it.title;
-
-    tile.appendChild(img);
-    tile.appendChild(cap);
-
-    tile.addEventListener("click", () => openLightbox(it));
-    tile.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") openLightbox(it);
-    });
-
-    frag.appendChild(tile);
-  });
-
-  elGrid.appendChild(frag);
+  populateThemeDropdown(ALL);
+  setStatus("");
+  applyFilters();
 }
 
-function openLightbox(it) {
-  elLightboxImg.src = it.url;
-  elLightboxImg.alt = it.title;
-  elLightboxTitle.textContent = it.title;
+function populateThemeDropdown(items) {
+  if (!elTheme) return;
 
-  elLightbox.classList.add("open");
-  elLightbox.setAttribute("aria-hidden", "false");
-}
+  const set = new Set();
+  for (const it of items) {
+    for (const t of it.themes) set.add(t);
+  }
 
-function closeLightbox() {
-  elLightbox.classList.remove("open");
-  elLightbox.setAttribute("aria-hidden", "true");
-  elLightboxImg.src = "";
-  elLightboxTitle.textContent = "";
-}
+  const themes = Array.from(set).sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" })
+  );
 
-// Lightbox events
-elLightboxClose.addEventListener("click", closeLightbox);
-elLightbox.addEventListener("click", (e) => {
-  if (e.target === elLightbox) closeLightbox();
-});
-window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeLightbox();
-});
+  const keepFirst = elTheme.querySelector("option[value='']");
+  elTheme.innerHTML = "";
 
-// Filters events
-elSearch.addEventListener("input", applyFilters);
-elTheme.addEventListener("change", applyFilters);
-elSort.addEventListener("change", applyFilters);
+  if (keepFirst) {
+    elTheme.appendChild(keepFirst);
+  } else {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "All Themes";
+    elTheme.appendChild(opt);
+  }
 
-async function init() {
-  try {
-    elStatus.textContent = "Loading…";
-
-    const res = await fetch(DATA_URL, { cache: "no-store" });
-    if (!res.ok) throw new Error(`Failed to load ${DATA_URL}`);
-
-    const data = await res.json();
-    ALL = coerceItems(data);
-
-    if (!ALL.length) {
-      elStatus.textContent = "No items found in JSON.";
-      return;
-    }
-
-    fillThemeDropdown(ALL);
-    fillSortDropdown();
-
-    elSort.value = "newest";
-    applyFilters();
-  } catch (err) {
-    console.error(err);
-    elStatus.textContent = "Load error. Check JSON file name and format.";
+  for (const t of themes) {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t;
+    elTheme.appendChild(opt);
   }
 }
 
-init();
+// ---------- Filtering + sorting ----------
+function applyFilters() {
+  const q = norm(elSearch?.value);
+  const theme = safeText(elTheme?.value).trim();
+  const sortMode = safeText(elSort?.value).trim() || "newest";
+
+  let out = ALL.slice();
+
+  if (q) {
+    out = out.filter(it => norm(it.name).includes(q));
+  }
+
+  if (theme) {
+    out = out.filter(it => it.themes.includes(theme));
+  }
+
+  if (sortMode === "newest") out.sort(compareNewest);
+  else if (sortMode === "oldest") out.sort(compareOldest);
+  else if (sortMode === "az") out.sort(compareAZ);
+  else if (sortMode === "za") out.sort(compareZA);
+  else out.sort(compareNewest);
+
+  FILTERED = out;
+  renderGrid(FILTERED);
+  setCount(FILTERED.length);
+}
+
+function renderGrid(items) {
+  if (!elGrid) return;
+  elGrid.innerHTML = "";
+
+  for (const it of items) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.tabIndex = 0;
+
+    const img = document.createElement("img");
+    img.loading = "lazy";
+    img.alt = it.name;
+    img.src = IMAGES_DIR + encodeURIComponent(it.filename);
+
+    const cap = document.createElement("div");
+    cap.className = "caption";
+    cap.textContent = it.name;
+
+    // fallback if image missing
+    img.onerror = function () {
+      console.warn("Missing image:", it.filename);
+      this.style.opacity = "0.2";
+      this.alt = `Missing image: ${it.filename}`;
+    };
+
+    card.appendChild(img);
+    card.appendChild(cap);
+
+    card.addEventListener("click", () => openLightbox(it));
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openLightbox(it);
+      }
+    });
+
+    elGrid.appendChild(card);
+  }
+}
+
+// ---------- Lightbox ----------
+function openLightbox(it) {
+  if (!elLightbox) return;
+
+  elLightbox.classList.add("open");
+  elLightbox.setAttribute("aria-hidden", "false");
+
+  if (elLightboxImg) {
+    elLightboxImg.src = IMAGES_DIR + encodeURIComponent(it.filename);
+    elLightboxImg.alt = it.name || "";
+  }
+
+  if (elLightboxTitle) {
+    elLightboxTitle.textContent = it.name || "";
+  }
+}
+
+function closeLightbox() {
+  if (!elLightbox) return;
+
+  elLightbox.classList.remove("open");
+  elLightbox.setAttribute("aria-hidden", "true");
+
+  if (elLightboxImg) {
+    elLightboxImg.src = "";
+    elLightboxImg.alt = "";
+  }
+
+  if (elLightboxTitle) {
+    elLightboxTitle.textContent = "";
+  }
+}
+
+// ---------- Wire events ----------
+function wireUI() {
+  if (elSearch) elSearch.addEventListener("input", applyFilters);
+  if (elTheme) elTheme.addEventListener("change", applyFilters);
+  if (elSort) elSort.addEventListener("change", applyFilters);
+
+  if (elLightboxClose) elLightboxClose.addEventListener("click", closeLightbox);
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeLightbox();
+  });
+
+  if (elLightbox) {
+    elLightbox.addEventListener("click", (e) => {
+      if (e.target === elLightbox) closeLightbox();
+    });
+  }
+}
+
+// ---------- Boot ----------
+(async function init() {
+  try {
+    wireUI();
+    await loadData();
+  } catch (err) {
+    setStatus("Load error. Check JSON file name and format.");
+    console.error(err);
+  }
+})();
