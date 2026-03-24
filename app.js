@@ -1,13 +1,13 @@
 /* =========================
    Dov Fuchs Digital Art - app.js
-   - Loads image_data.json
+   - Loads image-data.json
    - Accepts BOTH old and new JSON field names
    - Filters: search + theme
    - Sort: Newest / Oldest / A→Z / Z→A
    - Lightbox
    ========================= */
 
-const DATA_URL = "./image_data.json";
+const DATA_URL = "./image-data.json";
 const IMAGES_DIR = "./images/";
 
 // Elements
