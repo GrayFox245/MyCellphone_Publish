@@ -1,157 +1,121 @@
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
 
 
 def normalize_text(value) -> str:
-    """Convert NaN/None to empty string, otherwise to stripped string."""
-    if value is None:
-        return ""
-    if pd.isna(value):
+    if value is None or pd.isna(value):
         return ""
     return str(value).strip()
 
 
-def parse_year(value) -> int | None:
-    """Try to parse a year (e.g., 2026). Return None if not valid."""
-    txt = normalize_text(value)
-    if not txt:
-        return None
-    try:
-        year_int = int(float(txt))
-        if 1800 <= year_int <= 2200:
-            return year_int
-        return None
-    except Exception:
-        return None
-
-
-def make_date_created(year_value) -> str:
-    """
-    Produce an ISO8601 string for dateCreated.
-    If Year Created exists -> use YYYY-01-01T00:00:00Z
-    Else -> use current UTC time.
-    """
-    year = parse_year(year_value)
-    if year is not None:
-        dt = datetime(year, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-    else:
-        dt = datetime.now(timezone.utc)
-    return dt.isoformat(timespec="seconds").replace("+00:00", "Z")
-
-
-def parse_themes(value) -> list[str]:
-    """
-    Convert Themes cell into a list.
-    Expected format in Excel: comma-separated values.
-    Empty -> [].
-    """
-    txt = normalize_text(value)
-    if not txt:
-        return []
-    parts = [p.strip() for p in txt.split(",")]
-    return [p for p in parts if p]
-
-
-def ensure_extension(name_or_filename: str) -> str:
-    """
-    If Image Name already ends with a known image extension, keep it.
-    Otherwise append .jpg
-    """
-    s = normalize_text(name_or_filename)
-    if not s:
+def normalize_year_created(value) -> str:
+    if value is None or pd.isna(value):
         return ""
-    lower = s.lower()
-    if lower.endswith((".jpg", ".jpeg", ".png", ".webp")):
-        return s
-    return f"{s}.jpg"
+    if isinstance(value, pd.Timestamp):
+        return value.to_pydatetime().date().isoformat()
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, (int, float)):
+        try:
+            base = datetime(1899, 12, 30)
+            return (base + timedelta(days=float(value))).date().isoformat()
+        except Exception:
+            return normalize_text(value)
+    return normalize_text(value)
 
 
-def utc_now_z() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+def parse_themes(value) -> str:
+    return normalize_text(value)
+
+
+def find_column(columns: list[str], preferred_names: list[str], fallback_index: int | None = None) -> str:
+    normalized = {str(col).strip().lower(): str(col) for col in columns}
+
+    for name in preferred_names:
+        match = normalized.get(name.lower())
+        if match:
+            return match
+
+    if fallback_index is not None and fallback_index < len(columns):
+        return str(columns[fallback_index])
+
+    raise ValueError(
+        f"Could not find any of {preferred_names}. Found columns: {', '.join(map(str, columns))}"
+    )
+
+
+def build_image_lookup(images_dir: Path) -> dict[str, str]:
+    if not images_dir.exists():
+        return {}
+
+    lookup: dict[str, str] = {}
+    for path in images_dir.iterdir():
+        if not path.is_file():
+            continue
+        if path.suffix.lower() not in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tiff"}:
+            continue
+        lookup.setdefault(path.stem.casefold(), path.name)
+    return lookup
+
+
+def resolve_image_file(image_name: str, image_lookup: dict[str, str]) -> str:
+    return image_lookup.get(image_name.casefold(), f"{image_name}.jpg")
 
 
 def main() -> None:
-    # scripts/excel_to_json.py -> repo root is one level up
     repo_root = Path(__file__).resolve().parent.parent
-
     excel_path = repo_root / "data" / "image_data.xlsx"
-    json_path = repo_root / "image_data.json"
+    json_path = repo_root / "image-data.json"
     images_dir = repo_root / "images"
 
     if not excel_path.exists():
         raise FileNotFoundError(f"Excel file not found: {excel_path}")
 
-    if not images_dir.exists():
-        print(f"WARNING: images folder not found: {images_dir}")
+    df = pd.read_excel(excel_path, dtype=object)
+    columns = list(df.columns)
 
-    # Read Excel
-    df = pd.read_excel(excel_path)
+    number_col = find_column(columns, ["Number"], fallback_index=0)
+    image_name_col = find_column(columns, ["Image Name", "Name"], fallback_index=1)
+    description_col = find_column(columns, ["Image Description", "Description"], fallback_index=2)
+    themes_col = find_column(columns, ["Themes", "Theme"], fallback_index=3)
+    teaser_col = find_column(columns, ["Teaser"], fallback_index=4)
+    year_col = None
+    try:
+        year_col = find_column(columns, ["Year Created", "Date Created", "Year"], fallback_index=5)
+    except ValueError:
+        year_col = None
 
-    # Required columns (exactly as your header row)
-    required_cols = ["Image Name", "Image Description", "Themes", "Teaser", "Year Created"]
-    missing = [c for c in required_cols if c not in df.columns]
-    if missing:
-        raise ValueError(
-            "Excel is missing required column(s): "
-            + ", ".join(missing)
-            + "\nFound columns: "
-            + ", ".join(map(str, df.columns))
-        )
+    image_lookup = build_image_lookup(images_dir)
 
-    images: list[dict] = []
-    missing_files: list[str] = []
-
+    images: list[dict[str, object]] = []
     for _, row in df.iterrows():
-        name = normalize_text(row["Image Name"])
-        if not name:
-            # Skip completely blank rows (common at bottom of sheet)
+        image_name = normalize_text(row[image_name_col])
+        if not image_name:
             continue
 
-        description = normalize_text(row["Image Description"])
-        themes = parse_themes(row["Themes"])
-        teaser = normalize_text(row["Teaser"])
-        date_created = make_date_created(row["Year Created"])
+        item = {
+            "number": normalize_text(row[number_col]),
+            "image_name": image_name,
+            "description": normalize_text(row[description_col]),
+            "themes": parse_themes(row[themes_col]),
+            "teaser": normalize_text(row[teaser_col]),
+            "image_file": resolve_image_file(image_name, image_lookup),
+        }
 
-        filename = ensure_extension(name)
+        if year_col is not None:
+            item["year_created"] = normalize_year_created(row[year_col])
 
-        # Warn if file is missing in /images
-        image_file = images_dir / filename
-        if images_dir.exists() and not image_file.exists():
-            missing_files.append(filename)
+        images.append(item)
 
-        images.append(
-            {
-                "name": name,
-                "description": description,
-                "themes": themes,
-                "teaser": teaser,
-                "dateCreated": date_created,
-                "filename": filename,
-            }
-        )
-
-    payload = {
-        "generatedAt": utc_now_z(),
-        "count": len(images),
-        "images": images,
-    }
-
-    # Write JSON (UTF-8, pretty)
     json_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
+        json.dumps(images, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
     print(f"OK: Wrote {len(images)} images to {json_path}")
-
-    # Print warnings at the end (cleaner)
-    if missing_files:
-        print("\nWARNING: The following files are listed in Excel but missing in /images:")
-        for f in missing_files:
-            print(f" - {f}")
 
 
 if __name__ == "__main__":

@@ -36,15 +36,28 @@ function norm(s) {
   return safeText(s).trim().toLowerCase();
 }
 
-function parseYear(v) {
+function parseDateValue(v) {
   const s = safeText(v).trim();
+  if (!s) return null;
+
+  // ISO date like "2026-05-23"
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) {
+    const year = Number(iso[1]);
+    const month = Number(iso[2]);
+    const day = Number(iso[3]);
+    const time = Date.UTC(year, month - 1, day);
+    return Number.isFinite(time) ? time : null;
+  }
 
   // plain year like "2026"
-  if (/^\d{4}$/.test(s)) return Number(s);
+  if (/^\d{4}$/.test(s)) {
+    return Date.UTC(Number(s), 0, 1);
+  }
 
   // full date string like "Sun Feb 22 2026 ..."
-  const m = s.match(/\b(19|20)\d{2}\b/);
-  if (m) return Number(m[0]);
+  const time = Date.parse(s);
+  if (Number.isFinite(time)) return time;
 
   return null;
 }
@@ -64,12 +77,12 @@ function splitThemes(v) {
 }
 
 function buildSortKey(item) {
-  const y = parseYear(item.year);
+  const date = parseDateValue(item.year);
   const id = Number(item.id);
   const idOk = Number.isFinite(id);
 
   return {
-    year: y !== null ? y : -1,
+    date: date !== null ? date : -1,
     id: idOk ? id : -1,
     idx: Number.isFinite(item._idx) ? item._idx : 0,
   };
@@ -79,7 +92,7 @@ function compareNewest(a, b) {
   const ka = buildSortKey(a);
   const kb = buildSortKey(b);
 
-  if (kb.year !== ka.year) return kb.year - ka.year;
+  if (kb.date !== ka.date) return kb.date - ka.date;
   if (kb.id !== ka.id) return kb.id - ka.id;
   return kb.idx - ka.idx;
 }
@@ -88,9 +101,9 @@ function compareOldest(a, b) {
   const ka = buildSortKey(a);
   const kb = buildSortKey(b);
 
-  const ay = ka.year === -1 ? Number.POSITIVE_INFINITY : ka.year;
-  const by = kb.year === -1 ? Number.POSITIVE_INFINITY : kb.year;
-  if (ay !== by) return ay - by;
+  const ad = ka.date === -1 ? Number.POSITIVE_INFINITY : ka.date;
+  const bd = kb.date === -1 ? Number.POSITIVE_INFINITY : kb.date;
+  if (ad !== bd) return ad - bd;
 
   const aid = ka.id === -1 ? Number.POSITIVE_INFINITY : ka.id;
   const bid = kb.id === -1 ? Number.POSITIVE_INFINITY : kb.id;
